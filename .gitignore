@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# SolidWorks
+*.swj
+*swxJRNL*
+*.BAK
+~$*
+*.tmp
+*.bmp
+
+# Outputs and logs
+out/
+build/
+dist/
+*.log
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
