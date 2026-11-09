@@ -55,10 +55,18 @@ if ($ScriptName -ne "build_sw.py") {
 }
 
 try {
-    # 2. Registrar tarea programada interactiva efimera
-    $Action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$BatPath`"" -WorkingDirectory $FullWorkDir
+    # 2. Registrar tarea programada interactiva 100% invisible (Subsystem GUI via wscript.exe + SW_HIDE)
+    # Al invocar wscript.exe (GUI nativo de Windows), el kernel NUNCA abre ninguna consola conhost/cmd en el monitor.
+    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $SilentVbs = Join-Path $ScriptDir "run_silent.vbs"
+    if (-not (Test-Path $SilentVbs)) {
+        $SilentVbs = "c:\Users\USER\OneDrive - CAD Automation\Documentos\ISO_tracker\.agents\skills\solidworks-parametric-cad\scripts\run_silent.vbs"
+    }
+
+    $Action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "//B //Nologo `"$SilentVbs`" `"$BatPath`"" -WorkingDirectory $FullWorkDir
     $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
-    Register-ScheduledTask -TaskName $ActualTaskName -Action $Action -Principal $Principal -Force | Out-Null
+    $Settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    Register-ScheduledTask -TaskName $ActualTaskName -Action $Action -Principal $Principal -Settings $Settings -Force | Out-Null
 
     Start-ScheduledTask -TaskName $ActualTaskName
 

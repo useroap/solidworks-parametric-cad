@@ -1,6 +1,6 @@
 ---
 title: "Subhabilidad: Ingeniería Inversa de Mallas (STL a Sólido B-Rep Paramétrico)"
-module: "cad_automation"
+company: "CAD Automation"
 module: "cad_reverse_engineering"
 date: 2026-10-29
 tags:
@@ -14,7 +14,7 @@ tags:
 
 # Subhabilidad: Ingeniería Inversa de Mallas (STL a Sólido B-Rep Paramétrico)
 
-Esta subhabilidad documenta la metodología industrial para convertir mallas poligonales trianguladas (`.STL`, escaneos 3D o archivos de diseño conceptual) en sólidos paramétricos nativos (`.SLDPRT`, `.STEP`) en **SolidWorks 2025**, garantizando árboles de operaciones editables, cotas conductoras y precisión dimensional estricta ($< 0.1\text{ mm}$).
+Esta subhabilidad documenta la metodología desarrollada en **CAD Automation** para convertir mallas poligonales trianguladas (`.STL`, escaneos 3D o archivos de diseño conceptual) en sólidos paramétricos nativos (`.SLDPRT`, `.STEP`) en **SolidWorks 2025**, garantizando árboles de operaciones editables, cotas conductoras y precisión dimensional estricta ($< 0.1\text{ mm}$).
 
 ---
 
@@ -23,7 +23,7 @@ Esta subhabilidad documenta la metodología industrial para convertir mallas pol
 Un archivo `.STL` solo contiene una "sopa" de triángulos planos facetados:
 - **No tiene historia ni operaciones:** No se puede modificar el espesor de pared, cambiar el diámetro de rosca ni extraer planos de molde.
 - **Roscas deformadas:** Si se corta una sección transversal de una tapa roscada, el perfil del hilo aparece en una posición fija angular que varía según el plano de corte, generando cortes o salientes asimétricos no aptos para revolución simple.
-- **Sobrecarga de SolidWorks:** Importar un STL como cuerpo gráfico o de superficie directa satura el kernel Parasolid, ralentiza los ensambles y no permite generar dibujos técnicos normalizados (ISO-7200).
+- **Sobrecarga de SolidWorks:** Importar un STL como cuerpo gráfico o de superficie directa satura el kernel Parasolid, ralentiza los ensambles y no permite generar dibujos técnicos normalizados (ISO/ANSI Standard).
 
 ---
 

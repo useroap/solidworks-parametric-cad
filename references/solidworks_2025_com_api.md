@@ -261,24 +261,31 @@ for vname, vid in (("iso", 7), ("planta", 5), ("alzado", 1), ("lateral", 4), ("i
 
 ## 9. Advanced Plastic & Bottle Operations (`FeatureManager`)
 
-### 9.1 Helix & Spiral (`InsertHelix`)
-To generate a constant-pitch helix from a selected base circle sketch:
+### 9.1 Helix & Spiral (`IModelDoc2.InsertHelix`) - Parametric & Editable in UI
+To generate a native, 100% editable constant-pitch helix from a selected base circle sketch (replaces rigid 3D Splines):
 ```python
-# 1. Seleccionar el croquis circular base
+# 1. Seleccionar el croquis circular base (100% Fully Defined con Cota Ø y Coincidente con Origen)
 doc.ClearSelection2(True)
 circle_sketch_feat.Select2(False, 0)
 
-# 2. InsertHelix(Rev, RevDir, Clockwise, Pitch, Height, Angle, Taper, TaperAngle)
-# Rev: Revoluciones (float)
-# RevDir: True = Invertir dirección axial (+Z / -Z)
-# Clockwise: True = Sentido horario (rosca derecha convencional)
-# Pitch: Paso axial en metros (m(4.233) para 6 TPI)
-# Height: Altura total en metros (Pitch * Revoluciones)
-# Angle: Ángulo de inicio en radianes (math.radians(90.0) para alinear con Alzado)
-# Taper: False (sin cono para roscas cilíndricas)
-fm.InsertHelix(True, False, True, m(pitch_mm), m(pitch_mm * revs), math.radians(start_angle_deg), False, 0.0)
+# 2. IModelDoc2.InsertHelix (10 parámetros obligatorios):
+# doc.InsertHelix(Reversed, Clockwised, Tapered, Outward, Helixdef, Height, Pitch, Revolution, TaperAngle, Startangle)
+# - Reversed (bool): False = hacia arriba (+Y), True = hacia abajo (-Y)
+# - Clockwised (bool): True = Sentido horario (rosca derecha convencional), False = antihorario
+# - Tapered (bool): False (sin conicidad para roscas cilíndricas)
+# - Outward (bool): False
+# - Helixdef (int): 0 = swHelixDefinedByPitchAndRevolution
+# - Height (double): Altura total en metros (m(pitch_mm * revs))
+# - Pitch (double): Paso axial en metros (m(4.233) para 6 TPI)
+# - Revolution (double): Número de vueltas (float, ej. 1.2)
+# - TaperAngle (double): 0.0
+# - Startangle (double): Ángulo de inicio en radianes (0.0 rad para cortar exactamente el plano Front/Alzado en Z=0)
+doc.InsertHelix(
+    False, True, False, False, 0,
+    m(pitch_mm * revs), m(pitch_mm), float(revs), 0.0, 0.0
+)
 helix_feat = doc.FeatureByPositionReverse(0)
-helix_feat.Name = "Rosca_Helice"
+helix_feat.Name = "Rosca_Helice_Nativa"
 ```
 
 ### 9.2 Swept Boss & Cut (`InsertProtrusionSwept4` / `InsertCutSwept4`)
@@ -336,10 +343,10 @@ fm.FeatureFillet3(
 
 ---
 
-## 10. Automated 2D Engineering Drawings (ISO/ANSI Template)
+## 10. Automated 2D Engineering Drawings (ISO/ANSI Standard Template)
 
 ```python
-# 1. Crear nuevo dibujo usando plantilla corporativa ISO-7200
+# 1. Crear nuevo dibujo usando plantilla corporativa ISO/ANSI Standard
 sheet_format_path = r"C:\ProgramData\SOLIDWORKS\SOLIDWORKS 2025\lang\spanish\sheetformat\a_landscape.slddrt"
 draw_doc = sw.NewDocument(r"C:\ProgramData\SOLIDWORKS\SOLIDWORKS 2025\templates\Dibujo.drwdot", 12, 0.2794, 0.2159) # Carta horizontal
 

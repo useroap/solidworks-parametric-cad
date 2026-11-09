@@ -19,7 +19,7 @@ Toda verificación dimensional y geométrica **debe ser una auditoría objetiva 
 
 ---
 
-## 2. Las 5 Invariantes Físicas Obligatorias (Ground-Truth Invariants)
+## 2. Las 6 Invariantes Físicas Obligatorias (Ground-Truth Invariants)
 
 Cualquier pieza modificada (`.SLDPRT`) debe ser auditada mediante `sw_model_auditor.py` o inspección COM directa verificando:
 
@@ -30,12 +30,14 @@ flowchart TD
     M --> I3["3. Integridad B-Rep (0 superficies residuales)"]
     M --> I4["4. Masa y Volumen (Volumen coherente con DFM)"]
     M --> I5["5. Envolvente Física (BBox X, Y, Z real)"]
+    M --> I6["6. Estado de Croquis (100% Fully Defined / 0 líneas azules)"]
 
-    I1 --> PASS{"¿Cumple las 5?"}
+    I1 --> PASS{"¿Cumple las 6?"}
     I2 --> PASS
     I3 --> PASS
     I4 --> PASS
     I5 --> PASS
+    I6 --> PASS
 
     PASS -- SÍ --> OK["✅ Entrega Válida (STEP / STL / Plano)"]
     PASS -- NO --> FAIL["❌ Rechazo Inmediato: Investigar Causa Raíz"]
@@ -79,6 +81,16 @@ flowchart TD
 - Extraer `bb = body.GetBodyBox()` y calcular dimensiones:
   $$\Delta X = (bb[3] - bb[0]) \times 1000, \quad \Delta Y = (bb[4] - bb[1]) \times 1000, \quad \Delta Z = (bb[5] - bb[2]) \times 1000$$
 - Si el requerimiento era ensanchar o afinar un brazo y $\Delta X, \Delta Y, \Delta Z$ permanecen idénticos ($\Delta < 0.5\text{ mm}$), la silueta visual **no cambió**.
+
+### Invariante 6: Estado de Restricción de Croquis (`GetConstrainedStatus == 3`)
+- Todo croquis en el modelo (incluyendo croquis absorbidos en revoluciones, extrusiones, barridos, solevaciones y cortes) debe estar **100% Totalmente Definido (`swSketchFullyConstrained = 3`)**:
+  ```python
+  status = sketch.GetConstrainedStatus()
+  # 0 = swSketchNotSolved, 1 = swSketchOverConstrained, 2 = swSketchUnderConstrained, 3 = swSketchFullyConstrained
+  ```
+- **PROHIBIDO:** Dejar croquis con el prefijo `(-)` en el FeatureTree de SolidWorks o con líneas/vértices en color azul.
+- Si `sw_model_auditor.py` detecta croquis subdefinidos (`under_defined_sketches != []`), el veredicto es inmediatamente **`UNDER_DEFINED_SKETCHES`** y la entrega queda **RECHAZADA**.
+- Consultar la guía técnica completa en [Estándar Maestro de Croquis 100% Totalmente Definidos](./fully_defined_sketches_standard.md).
 
 ---
 

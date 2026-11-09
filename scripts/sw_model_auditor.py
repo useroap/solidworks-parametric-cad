@@ -39,11 +39,32 @@ def audit_part(sw, part_path, target_params=None):
         "parameters": {},
         "total_features": 0,
         "suppressed_features": [],
+        "under_defined_sketches": [],
+        "over_defined_sketches": [],
+        "fully_defined_sketches": [],
         "solid_bodies": [],
         "surface_bodies_count": 0,
         "error_features": [],
         "verdict": "UNKNOWN"
     }
+
+    # Helper para auditar estado de croquis (Fully Defined / Under Defined / Over Defined)
+    def _audit_sketch_feature(f):
+        ftype_loc = _v(f.GetTypeName2)
+        fname_loc = _v(f.Name)
+        if "ProfileFeature" in ftype_loc:
+            sk = _v(f.GetSpecificFeature2)
+            if sk:
+                try:
+                    st = _v(sk.GetConstrainedStatus)
+                    if st == 2 and fname_loc not in res["under_defined_sketches"]:
+                        res["under_defined_sketches"].append(fname_loc)
+                    elif st == 1 and fname_loc not in res["over_defined_sketches"]:
+                        res["over_defined_sketches"].append(fname_loc)
+                    elif st == 3 and fname_loc not in res["fully_defined_sketches"]:
+                        res["fully_defined_sketches"].append(fname_loc)
+                except Exception:
+                    pass
 
     # 1. Auditoria de Parametros
     if target_params:
@@ -57,7 +78,7 @@ def audit_part(sw, part_path, target_params=None):
             else:
                 res["parameters"][p_name.strip()] = {"value_mm": None, "exists": False}
 
-    # 2. Auditoria del Arbol de Operaciones
+    # 2. Auditoria del Arbol de Operaciones y Croquis
     feat = _v(doc.FirstFeature)
     while feat:
         res["total_features"] += 1
@@ -72,6 +93,15 @@ def audit_part(sw, part_path, target_params=None):
             pass
         if err_code != 0:
             res["error_features"].append({"name": fname, "type": ftype, "error_code": err_code})
+
+        # Auditar el propio feature si es croquis
+        _audit_sketch_feature(feat)
+        # Auditar sub-operaciones (croquis absorbidos en extrusiones, revoluciones, barridos, solevaciones)
+        subfeat = _v(feat.GetFirstSubFeature)
+        while subfeat:
+            _audit_sketch_feature(subfeat)
+            subfeat = _v(subfeat.GetNextSubFeature)
+
         feat = _v(feat.GetNextFeature)
 
     # 3. Auditoria de Cuerpos Solidos
@@ -114,6 +144,10 @@ def audit_part(sw, part_path, target_params=None):
         res["verdict"] = "NO_VISIBLE_SOLID"
     elif len(res["suppressed_features"]) > 0:
         res["verdict"] = "UNEXPECTED_SUPPRESSIONS"
+    elif len(res["under_defined_sketches"]) > 0:
+        res["verdict"] = "UNDER_DEFINED_SKETCHES"
+    elif len(res["over_defined_sketches"]) > 0:
+        res["verdict"] = "OVER_DEFINED_SKETCHES"
     else:
         res["verdict"] = "HEALTHY"
 
@@ -202,6 +236,11 @@ def main():
     print(f"Operaciones arbol:  {audit.get('total_features')} (Suprimidas: {len(audit.get('suppressed_features', []))})")
     if audit.get("suppressed_features"):
         print(f"  -> Suprimidas:    {', '.join(audit['suppressed_features'][:10])}")
+    print(f"Estado de Croquis:  Fully Defined: {len(audit.get('fully_defined_sketches', []))} | Under Defined: {len(audit.get('under_defined_sketches', []))} | Over Defined: {len(audit.get('over_defined_sketches', []))}")
+    if audit.get("under_defined_sketches"):
+        print(f"  -> SUBDEFINIDOS (-): {', '.join(audit['under_defined_sketches'][:10])}")
+    if audit.get("over_defined_sketches"):
+        print(f"  -> SOBREDEFINIDOS:   {', '.join(audit['over_defined_sketches'][:10])}")
     print(f"Cuerpos superficie: {audit.get('surface_bodies_count')} (Esperado: 0 para solido cerrado)")
 
     print(f"\nCuerpos Solidos ({len(audit.get('solid_bodies', []))}):")

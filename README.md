@@ -12,27 +12,32 @@ A production-grade, battle-tested engineering skill and automation framework for
 
 ## 🚀 Key Capabilities
 
-1. **100% Parametric B-Rep Solids (Zero Meshes):**
+1. **100% Parametric B-Rep Solids & Fully Defined Sketches:**
    - Full Feature Tree generation (`SketchManager`, `FeatureManager`, `Extrusion`, `Revolve`, `Fillet`, `Chamfer`, `Loft`, `Shell`).
-   - Fully constrained 2D sketches (black lines) linked to equations (`auto_constrain_segments()`, `fully_define()`).
-2. **Standard Plastic Packaging Threads (SPI / GPI / ISBT):**
+   - Mandatory **100% Fully Constrained Sketches (Black Lines / Zero Blue Lines)**: mathematical constraint hierarchy, origin anchoring, baseline driving dimensions, and status auditing (`is_fully_defined()`).
+2. **Editable Native Plastic Threads (Helix & Sweep — Zero Rigid Splines):**
    - Parametric Modified Buttress Style "M" ($45^\circ / 10^\circ$) threads.
    - Built-in library: SP-400, SP-410, SP-415 with runout relief and proper lead-in taper via [`scripts/sw_thread_helper.py`](./scripts/sw_thread_helper.py).
-3. **Ground-Truth Geometric Audit Tool ([`scripts/sw_model_auditor.py`](./scripts/sw_model_auditor.py)):**
-   - Read-only CAD inspection tool verifying the **5 physical invariants**:
+   - Modeled exclusively with native **`InsertHelix` (10 parameters)** + **`InsertProtrusionSwept4`** for total GUI editability by human designers.
+3. **Zero-Distraction Isolated Background CAD Tasks:**
+   - Models run invisibly in memory using `DocumentVisible(False)` / `BackgroundCADSession` without stealing focus or altering the user's active document window.
+   - Native Windows GUI launcher ([`scripts/run_silent.vbs`](./scripts/run_silent.vbs) + `wscript.exe`) guarantees **100% hidden execution with ZERO CMD console popups**.
+4. **Ground-Truth Geometric Audit Tool ([`scripts/sw_model_auditor.py`](./scripts/sw_model_auditor.py)):**
+   - Read-only CAD inspection tool verifying the **6 physical invariants**:
      - Exact database dimension validation (avoids visual false positives).
      - Detection of unapproved feature suppressions (`suppressed_features == 0`).
      - Zero surface leaks (`surface_bodies == 0`, strictly closed solids).
      - DFM wall thickness & volume ratio verification (flags solidifications).
      - Bounding box shift verification.
-4. **Automated 2D ISO Drawings (ISO/ANSI Format):**
+     - **Invariant 6: Zero under-defined sketches** (`under_defined_sketches == []`).
+5. **Automated 2D ISO Drawings (ISO/ANSI Format):**
    - Automated layout on ANSI Letter Landscape ($279.4 \times 215.9\text{ mm}$).
    - Physical title block and border insertion via `SetupSheet5` with `a_landscape.slddrt`.
    - Dynamic auto-scaling ($1:1, 1:2, 1:4, 1:5$), centered orthogonal views, and shaded isometric view.
-5. **Interactive Windows Sandbox Desktop Bridge:**
+6. **Interactive Windows Sandbox Desktop Bridge:**
    - [`scripts/run_in_interactive_session.ps1`](./scripts/run_in_interactive_session.ps1) resolves the Windows `MK_E_UNAVAILABLE` sandbox COM isolation by bridging tasks into the interactive user desktop.
    - Ephemeral scheduled tasks with folder-hashed names, automatic `.bmp` to `.png` conversion, and rotating COM journals (`swxJRNL.swj`).
-6. **MecAgent Architecture (Prompt-to-CAD):**
+7. **MecAgent Architecture (Prompt-to-CAD):**
    - Live context inspector ([`scripts/sw_context_inspector.py`](./scripts/sw_context_inspector.py)) reading active models, selections, and features in $O(1)$.
    - Protected runner ([`scripts/sw_prompt_runner.py`](./scripts/sw_prompt_runner.py)) with structured self-healing JSON diagnostics.
 

@@ -2,13 +2,13 @@
 name: solidworks-parametric-cad
 description: >-
   Generate parametric 3D B-Rep models (.SLDPRT, .STEP), reverse engineer meshes (.STL to CAD),
-  automate plastic threads (SPI-400/410/415), and generate ISO drawings (.SLDDRW ISO-7200)
+  automate plastic threads (SPI-400/410/415), and generate ISO drawings (.SLDDRW ISO/ANSI Standard)
   in SolidWorks 2025 via the Python COM API (pywin32) and ezdxf.
 ---
 
 # SolidWorks 2025 Parametric 3D CAD, Reverse Engineering & ISO Drawings Skill
 
-This skill provides a complete, battle-tested engineering workflow for generating **100% parametric B-Rep 3D solids (zero meshes)** in **SolidWorks 2025** via `pywin32` COM automation, including **STL-to-CAD reverse engineering**, **standard plastic bottle/closure threads (SPI / ISBT)**, **fully constrained sketches**, and **automated technical drawings (ISO/ANSI format)**.
+This skill provides a complete, battle-tested engineering workflow for generating **100% parametric B-Rep 3D solids (zero meshes)** in **SolidWorks 2025** via `pywin32` COM automation, including **STL-to-CAD reverse engineering**, **standard plastic bottle/closure threads (SPI / ISBT)**, **fully constrained sketches**, and **automated technical drawings (ISO/ANSI Standard format)**.
 
 ---
 
@@ -28,6 +28,10 @@ Before writing or running any SolidWorks script, verify the following requiremen
    - Agent commands executed via `run_command` run inside a sandboxed desktop (`exebox-...`) whose COM Running Object Table (ROT) is isolated from the interactive `Default` desktop where SolidWorks runs.
    - Calling `GetActiveObject` directly inside `run_command` fails with `MK_E_UNAVAILABLE (-2147221021)`.
    - **Always execute SolidWorks scripts via an interactive Scheduled Task** using [run_in_interactive_session.ps1](./scripts/run_in_interactive_session.ps1) (see [Sandbox Desktop Bridge Reference](./references/sandbox_desktop_bridge.md)).
+4. **Isolated Background CAD Tasks (Zero-Distraction / Hidden Window):**
+   - Para no interferir con el documento abierto del diseñador humano ni robar el foco de la ventana gráfica en SolidWorks, todo script debe modelar en segundo plano mediante `BackgroundCADSession` o `sw.DocumentVisible(False, 1)`.
+   - La tarea de Windows corre con `$Settings.Hidden = $True` y `-WindowStyle Hidden`, eliminando el parpadeo de consolas negras en el monitor.
+   - El modelo se construye 100% en memoria; `swApp.ActiveDoc` del usuario permanece intacto y la sesión se restaura automáticamente (ver [Estándar de Tareas Aisladas en Segundo Plano](./references/background_isolated_cad_tasks.md)).
 
 ---
 
@@ -58,8 +62,17 @@ Organize each part under `tools/cad/<part_name>/`:
 ### Step 3: Parametric 3D B-Rep Modeling (`build_sw.py`)
 1. Copy or adapt [sw_base_template.py](./scripts/sw_base_template.py).
 2. Follow the mandatory SolidWorks 2025 COM API rules in [SolidWorks 2025 COM API Reference](./references/solidworks_2025_com_api.md):
-   - **Fully Constrained Sketches (Black Lines):** Draw entities in database mode (`AddToDB = True`), switch to interactive mode (`AddToDB = False`), call `auto_constrain_segments()`, apply explicit relations (`sgHORIZONTAL2D`, `sgVERTICAL2D`, `sgCOINCIDENT`, `sgCOLINEAR`), add driving dimensions linked to `EquationMgr`, and close with `fully_define(use_relations=True, use_dimensions=True)`.
-   - **Plastic Bottle & Cap Threads (SPI / GPI / ISBT):** Import [sw_thread_helper.py](./scripts/sw_thread_helper.py) and consult [Subhabilidad: Roscas Plásticas SPI](./references/plastic_threads_spi_standards.md). Always model the Modified Buttress Style "M" ($45^\circ / 10^\circ$) thread with helix sweep, $0.4\text{ mm}$ wall overlap, and end runout relief.
+   - **MANDATORY: 100% Fully Defined Sketches (Black Lines / Zero Blue Lines for ALL Sketch Types):**
+     Consult the comprehensive guide in [Estándar Maestro de Croquis 100% Fully Defined](./references/fully_defined_sketches_standard.md). **NINGÚN croquis puede quedar Subdefinido (`Under Defined` / líneas azules) ni Sobredefinido (`Over Defined`).** Esto aplica a:
+     - **Revoluciones (Envases, Botellas, Tapas):** Eje constructivo vertical coincidente con el Origen $(0,0,0)$, cierre hermético en $X=0$, contorno cerrado de doble pared paramétrica, arcos interiores restringidos con `CONCENTRIC` al arco exterior y cota única de espesor radial, y cotas diametrales ($\varnothing$) cruzando el eje central.
+     - **Extrusiones & Cortes:** Anclaje al Origen, simetría respecto a planos medios (`Alzado`, `Vista Lateral`), cotas de envolvente ($W, L$) y posición ortogonal ($X, Y$) de cavidades/taladros.
+     - **Barridos / Sweeps (Roscas, Tuberías):** Perfil de rosca con restricción `PIERCE` (perforar) en la hélice/trayectoria, solapamiento DFM de $0.3\text{ - }0.4\text{ mm}$ para evitar espesor cero, y trayectoria circular centrada en el eje.
+     - **Solevaciones / Lofts (Envases Oblongos / Estadio / Nutella):** Centros de cada estación en planos desplazados coincidentes con el eje vertical $Y$, secciones estadio gobernadas por líneas paralelas + arcos tangentes (`EQUAL`), y curvas guía con relación `PIERCE` en cuadrantes.
+     - **API de Resolución:** Dibujar entidades en base de datos (`AddToDB = True`), cambiar a interactivo (`AddToDB = False`), aplicar relaciones explícitas (`sgHORIZONTAL2D`, `sgVERTICAL2D`, `sgCOINCIDENT`, `sgCONCENTRIC`, `sgTANGENT`, `sgPIERCE`), agregar cotas conductoras (`Driving`) y verificar `sk.GetConstrainedStatus() == 3`.
+   - **Plastic Bottle & Cap Threads (Native Editable Helix & Sweep — PROHIBIDAS LAS SPLINES 3D):**
+     Import [sw_thread_helper.py](./scripts/sw_thread_helper.py) and consult [Subhabilidad: Roscas Plásticas SPI](./references/plastic_threads_spi_standards.md).
+     **Regla Mandatoria:** Modelar SIEMPRE la rosca mediante la operación nativa **`Hélice/Espiral` (`IModelDoc2.InsertHelix`)** a partir de un croquis circular base acotado, seguida de **`Saliente Barrido` (`InsertProtrusionSwept4`)** con perfil Estilo "M" ($45^\circ / 10^\circ$), solapamiento de pared de $0.40\text{ mm}$ y desvanecimiento de extremos (`InsertDeleteFace2` o corte a $45^\circ$).
+     **PROHIBIDO:** Usar `Insert3DSketch + CreateSpline2` para roscas, ya que genera curvas rígidas e ineditables para el usuario en SolidWorks. Con `InsertHelix`, el diseñador puede editar el paso, las revoluciones y el diámetro directamente en la interfaz gráfica.
    - **DFM Guidelines for Plastics:** Consult [Subhabilidad: DFM Plástico](./references/dfm_plastic_injection_and_blow_molding.md) for sealing lips (olive/bore seal, crab's claw), tamper-evident bridge bands, draft angles ($1^\circ$), and resin shrinkages/weights (PP, HDPE, PET).
    - Convert all millimeters to **meters** (`m(v) = v * 0.001`) and degrees to **radians**.
    - Discover standard planes (`[Front, Top, Right]`) by iterating `doc.FirstFeature` / `GetNextFeature` where `_v(f.GetTypeName2) == "RefPlane"`.
@@ -85,15 +98,16 @@ Organize each part under `tools/cad/<part_name>/`:
 > ```powershell
 > python .agents/skills/solidworks-parametric-cad/scripts/sw_model_auditor.py "ruta\al\modelo.SLDPRT" --baseline "ruta\al\modelo_base.SLDPRT" --params "D1@Croquis1,D2@Croquis2"
 > ```
-> El modelo solo es aceptable si cumple las 5 invariantes físicas:
+> El modelo solo es aceptable si cumple las 6 invariantes físicas:
 > 1. **Cotas reales modificadas:** El valor numérico de cada cota leída de la base de datos cambió al valor requerido.
 > 2. **Cero supresiones involuntarias:** `suppressed_features == 0`. Prohibido suprimir vaciados o redondeos para forzar que el árbol cierre.
 > 3. **Cero fugas de superficie:** `surface_bodies_count == 0` (sólido cerrado B-Rep).
 > 4. **Volumen coherente con DFM:** Ratio de volumen dentro de la variación esperada ($\Delta \text{Vol} \ll 50\%$). Si el volumen se triplica, se quebró el vaciado de pared.
 > 5. **Envolvente modificada:** La caja envolvente (`bbox_mm`) refleja físicamente la nueva silueta.
+> 6. **Cero croquis subdefinidos (Líneas Negras):** `under_defined_sketches == []` (estado `swSketchFullyConstrained = 3`). Todo croquis con signo menos `(-)` en el árbol o líneas azules invalida la pieza (`verdict: UNDER_DEFINED_SKETCHES`).
 
-### Step 5: Automated 2D Engineering Drawings (ISO/ANSI Format)
-- Follow [Subhabilidad: Automatización de Planos ISO/ANSI](./references/drawing_iso_automation.md).
+### Step 5: Automated 2D Engineering Drawings (ISO/ANSI Standard Format)
+- Follow [Subhabilidad: Automatización de Planos ISO/ANSI Standard](./references/drawing_iso_format_automation.md).
 - Instantiates `a_landscape.slddrt` from `C:\ProgramData\SOLIDWORKS\SOLIDWORKS 2025\lang\spanish\sheetformat\a_landscape.slddrt`, projects the 3 standard views + shaded isometric view, calculates auto-scale, and populates the corporate title block with part metadata.
 
 ### Step 6: Interactive Prompt-to-CAD Workflow (MecAgent Architecture)
@@ -109,11 +123,13 @@ Organize each part under `tools/cad/<part_name>/`:
 
 ## 4. Reference Documentation & Sub-Skills
 
-- **[Protocolo de Auditoría Geométrica Real & Lecciones Aprendidas](./references/cad_modification_audit_protocol.md)** — Metodología obligatoria de validación ground-truth (las 5 invariantes físicas) y lecciones aprendidas en modificaciones paramétricas de piezas complejas (prevención de falsos positivos y de supresiones arbitrarias).
+- **[Estándar de Tareas Aisladas en Segundo Plano & Ventana Oculta (`background_isolated_cad_tasks.md`)](./references/background_isolated_cad_tasks.md)** — Metodología de ejecución sin interferencias con el usuario (Zero-Distraction): `DocumentVisible(False)`, `BackgroundCADSession`, eliminación de procesos zombies y tareas programadas sin parpadeo de consola.
+- **[Estándar Maestro de Croquis 100% Totalmente Definidos (`fully_defined_sketches_standard.md`)](./references/fully_defined_sketches_standard.md)** — Metodología obligatoria de restricciones matemáticas y jerarquía de relaciones para Revoluciones, Extrusiones, Barridos, Solevaciones y Curvas Guía. Cero líneas azules en SolidWorks 2025.
+- **[Protocolo de Auditoría Geométrica Real & Lecciones Aprendidas](./references/cad_modification_audit_protocol.md)** — Metodología obligatoria de validación ground-truth (las 6 invariantes físicas) y lecciones aprendidas en modificaciones paramétricas de piezas complejas (prevención de falsos positivos y de supresiones arbitrarias).
 - **[Arquitectura Prompt-to-CAD & MecAgent Reverse Engineering](./references/prompt_to_cad_architecture.md)** — Metodología de modelado con IA mediante prompts en lenguaje natural, captura de contexto en vivo y bucle de auto-sanación.
 - **[Subhabilidad: Roscas Plásticas & Estándares SPI / GPI / ISBT](./references/plastic_threads_spi_standards.md)** — Estándares SP-400, SP-410, SP-415, perfiles Estilo "M" ($45^\circ / 10^\circ$), tablas dimensionales, y automatización con hélice, barrido y desvanecimiento de rosca (runout).
 - **[Subhabilidad: Ingeniería Inversa STL a B-Rep](./references/reverse_engineering_stl_to_brep.md)** — Metodología de corte axial, separación de pared base y rosca, simplificación poligonal y auditoría de volumen.
-- **[Subhabilidad: Automatización de Planos 2D ISO/ANSI](./references/drawing_iso_automation.md)** — Generación automática de planos normalizados con rótulo normalizado de ingeniería.
+- **[Subhabilidad: Automatización de Planos 2D ISO/ANSI Standard](./references/drawing_iso_format_automation.md)** — Generación automática de planos normalizados con rótulo oficial CAD Engineering.
 - **[Subhabilidad: DFM Plástico para Inyección y Soplado](./references/dfm_plastic_injection_and_blow_molding.md)** — Reglas de sellos (bore seal, crab's claw), bandas inviolables frangibles, densidades y contracciones.
 - **[SolidWorks 2025 COM API Reference](./references/solidworks_2025_com_api.md)** — Signatures completas de `SketchManager`, `FeatureManager`, hélices, barridos, eliminación de caras, matrices y planos.
 - **[Sandbox Desktop Bridge Reference](./references/sandbox_desktop_bridge.md)** — Ejecución de scripts interactivos en SolidWorks evitando el error `MK_E_UNAVAILABLE`.
@@ -127,6 +143,6 @@ Organize each part under `tools/cad/<part_name>/`:
 - **[Live Context Inspector (`sw_context_inspector.py`)](./scripts/sw_context_inspector.py)** — Inspecciona en $O(1)$ documento activo, selección (caras/aristas/planos) y árbol de operaciones para inyectar contexto a los prompts.
 - **[Prompt-to-CAD Runner (`sw_prompt_runner.py`)](./scripts/sw_prompt_runner.py)** — Ejecutor interactivo de scripts CAD con puente de escritorio, capturas automáticas de vistas y diagnóstico estructurado JSON.
 - **[Helper de Roscas Paramétricas (`sw_thread_helper.py`)](./scripts/sw_thread_helper.py)** — Generador de roscas SPI SP-400/410/415 de 1 línea en SolidWorks.
-- **[Base Script Template (`sw_base_template.py`)](./scripts/sw_base_template.py)** — Plantilla con croquis 100% acotados y relacionados (`auto_constrain_segments()`, `fully_define()`).
+- **[Base Script Template (`sw_base_template.py`)](./scripts/sw_base_template.py)** — Plantilla con modelado en segundo plano (`BackgroundCADSession`, `new_part(hidden=True)`), croquis 100% acotados y relacionados (`auto_constrain_segments()`, `fully_define()`), y exportación segura.
 - **[Interactive Runner (`run_in_interactive_session.ps1`)](./scripts/run_in_interactive_session.ps1)** — Lanzador PowerShell para sesión interactiva de Windows con aislamiento de tareas efímeras y limpieza automática de bitmaps y diarios COM.
 - **[Ejemplo Multicuerpo: Enclosure Paramétrico Bicomponente](./examples/multi_body_enclosure_example.md)** — Ejemplo de pieza inyectada multicuerpo con chasis rígido y junta de estanqueidad perimetral.

@@ -33,3 +33,4 @@ To execute `build_sw.py` inside the exact interactive desktop where SolidWorks 2
    powershell -ExecutionPolicy Bypass -File ".agents/skills/solidworks-parametric-cad/scripts/run_in_interactive_session.ps1" -WorkDir "tools\cad\my_part_project"
    ```
 3. The task runs under the interactive user token on `WinSta0\Default`, connects immediately to the open SolidWorks 2025 window via `GetActiveObject("SldWorks.Application")`, writes real-time logs to `out\build_log.txt`, and appends `EXIT=0` upon completion.
+4. **Zero Console Popups:** The task invokes `wscript.exe` (subsystem GUI) with [run_silent.vbs](../scripts/run_silent.vbs) using `SW_HIDE = 0`, ensuring that no black CMD console windows ever appear or flash on the user's desktop.

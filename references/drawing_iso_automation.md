@@ -1,23 +1,23 @@
 ---
-title: "Subhabilidad: Automatización de Planos 2D ISO / ANSI"
-module: "cad_automation"
-module: "cad_drawings_iso-drawings"
+title: "Subhabilidad: Automatización de Planos 2D con Formato ISO/ANSI Standard"
+company: "CAD Automation"
+module: "cad_drawings_iso_format"
 date: 2026-10-29
 tags:
   - solidworks
   - drawing-automation
-  - iso-drawings
+  - iso_format
   - sheet-format
   - standard
 ---
 
-# Subhabilidad: Automatización de Planos 2D ISO / ANSI
+# Subhabilidad: Automatización de Planos 2D con Formato ISO/ANSI Standard
 
-Esta subhabilidad documenta la generación desatendida y automática de planos técnicos 2D (`.SLDDRW`, `.PDF`) en **SolidWorks 2025** utilizando el formato corporativo oficial de calidad **ISO-7200 (Carta Horizontal)** de **CAD Automation Framework**.
+Esta subhabilidad documenta la generación desatendida y automática de planos técnicos 2D (`.SLDDRW`, `.PDF`) en **SolidWorks 2025** utilizando el formato corporativo oficial de calidad **ISO/ANSI Standard (Carta Horizontal)** de **CAD Automation**.
 
 ---
 
-## 1. Ubicación y Especificaciones del Formato ISO-7200
+## 1. Ubicación y Especificaciones del Formato ISO/ANSI Standard
 
 - **Ubicación Oficial del Rótulo:**
   `C:\ProgramData\SOLIDWORKS\SOLIDWORKS 2025\lang\spanish\sheetformat\a_landscape.slddrt`
@@ -67,9 +67,9 @@ import pythoncom
 
 NOTHING = VARIANT(pythoncom.VT_DISPATCH, None)
 
-def generate_iso-drawings_drawing(model_doc, out_dwg_path: str = None):
+def generate_iso_format_drawing(model_doc, out_dwg_path: str = None):
     """
-    Crea un plano 2D normalizado ISO a partir del modelo activo de pieza.
+    Crea un plano 2D normalizado ISO/ANSI Standard a partir del modelo activo de pieza.
     """
     sw = win32com.client.GetActiveObject("SldWorks.Application")
     model_path = model_doc.GetPathName
@@ -142,7 +142,7 @@ def generate_iso-drawings_drawing(model_doc, out_dwg_path: str = None):
         err = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         wrn = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
         draw_doc.Extension.SaveAs(out_dwg_path, 0, 1, NOTHING, err, wrn)
-        print(f"Plano ISO guardado en: {out_dwg_path}")
+        print(f"Plano ISO/ANSI Standard guardado en: {out_dwg_path}")
 
     return draw_doc
 ```
@@ -159,5 +159,5 @@ cust_prop.Add3("CLIENTE", 30, "CLIENTE INDUSTRIAL", 1)
 cust_prop.Add3("DESCRIPCION", 30, "COMPONENTE MODULAR Ø63 mm", 1)
 cust_prop.Add3("MATERIAL", 30, "POLIPROPILENO (PP)", 1)
 cust_prop.Add3("DIBUJO", 30, "INGENIERÍA DE DISEÑO", 1)
-cust_prop.Add3("CODIGO_FORMATO", 30, "ISO-7200", 1)
+cust_prop.Add3("CODIGO_FORMATO", 30, "ISO/ANSI Standard", 1)
 ```

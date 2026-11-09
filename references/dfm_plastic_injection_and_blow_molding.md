@@ -1,6 +1,6 @@
 ---
-title: "Subhabilidad: DFM Plástico para Inyección y Soplado (Estándar Industrial)"
-module: "cad_automation"
+title: "Subhabilidad: DFM Plástico para Inyección y Soplado (Estándar CAD Engineering)"
+company: "CAD Automation"
 module: "cad_dfm_plastics"
 date: 2026-10-29
 tags:
@@ -12,9 +12,9 @@ tags:
   - tamper-evident
 ---
 
-# Subhabilidad: DFM Plástico para Inyección y Soplado (Estándar Industrial)
+# Subhabilidad: DFM Plástico para Inyección y Soplado (Estándar CAD Engineering)
 
-Esta subhabilidad establece las reglas de diseño para manufactura (**DFM - Design for Manufacturing**) aplicadas en **CAD Automation Framework** para tapas, envases y componentes plásticos inyectados o soplados, asegurando desmoldeo limpio, estanqueidad hermética y control de peso en resinas estándar.
+Esta subhabilidad establece las reglas de diseño para manufactura (**DFM - Design for Manufacturing**) aplicadas en **CAD Automation** para tapas, envases y componentes plásticos inyectados o soplados, asegurando desmoldeo limpio, estanqueidad hermética y control de peso en resinas estándar.
 
 ---
 
@@ -22,7 +22,7 @@ Esta subhabilidad establece las reglas de diseño para manufactura (**DFM - Desi
 
 Al calcular masa, costo por gramo o dimensiones de cavidad de molde:
 
-| Resina | Nombre Técnico | Densidad ($\text{g/cm}^3$) | Contracción Volumétrica | Aplicación Típica |
+| Resina | Nombre Técnico | Densidad ($\text{g/cm}^3$) | Contracción Volumétrica | Aplicación Típica CAD Engineering |
 | :--- | :--- | :---: | :---: | :--- |
 | **PP** | Polipropileno Homopolímero / Copolímero | **0.90 – 0.91** | **1.5% – 2.0%** | Tapas roscadas, flip-top y dosificadores industriales. |
 | **PEAD (HDPE)** | Polietileno de Alta Densidad | **0.95 – 0.96** | **2.0% – 2.8%** | Tapas inviolables de bidones, botellas sopladas de lácteos y químicos. |

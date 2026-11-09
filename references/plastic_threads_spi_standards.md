@@ -1,6 +1,6 @@
 ---
 title: "Subhabilidad: Modelado Paramétrico de Roscas Plásticas & Estándares de Envases (SPI / GPI / ISBT)"
-module: "cad_automation"
+company: "CAD Automation"
 module: "cad_threads"
 date: 2026-10-29
 tags:
@@ -17,11 +17,11 @@ tags:
 
 Esta subhabilidad documenta la teoría dimensional, estándares industriales y el flujo de automatización en **SolidWorks 2025 (Python COM API)** para generar roscas plásticas de inyección y soplado (cuellos de botellas y tapas roscadas) con restricción geométrica total (sketches 100% definidos con cotas y relaciones).
 
-Basado en los estándares internacionales de la industria de empaques plásticos (SPI / GPI / ISBT):
-- SPI SP-400 Standard Finish Specifications
-- SPI SP-410 Standard Finish Specifications
-- SPI SP-415 Standard Finish Specifications
-- Society of the Plastics Industry (SPI) Neck Finish Chart
+Basado en los estándares de ingeniería de **CAD Automation**:
+- `C:\Users\USER\OneDrive - CAD Automation\Diseno\Libros\Standard\sp400.pdf`
+- `C:\Users\USER\OneDrive - CAD Automation\Diseno\Libros\Standard\sp410.pdf`
+- `C:\Users\USER\OneDrive - CAD Automation\Diseno\Libros\Standard\sp415.pdf`
+- `C:\Users\USER\OneDrive - CAD Automation\Diseno\Libros\Standard\spichart.pdf`
 - `ISBT-Threadspecs-R-Terminologies-Bottle-Finishes-2021.pdf`
 - `ISBT-Threadspecs-R-Terminologies-Finish-Features-Card-2022.pdf`
 
@@ -94,27 +94,47 @@ Es el perfil utilizado en la industria del plástico de inyección por su **resi
 
 ---
 
-## 5. Estrategia de Modelado CAD en SolidWorks 2025
+## 5. Estrategia de Modelado CAD en SolidWorks 2025: Hélice Nativa vs. Spline 3D
 
-Para crear una rosca paramétrica robusta sin errores de *cero espesor* ni discontinuidades:
+> [!DANGER]
+> **PROHIBICIÓN DE TRAYECTORIAS SPLINE 3D PARA ROSCAS:**
+> Nunca generar roscas mediante `Insert3DSketch` + `CreateSpline2` (splines 3D discretizadas por puntos).
+> **Motivo:** Las splines 3D son estáticas e imposibles de editar de forma paramétrica por un diseñador en la interfaz de SolidWorks.
+> **Regla Mandatoria:** La trayectoria de rosca DEBE crearse SIEMPRE mediante la operación nativa de SolidWorks **`Hélice/Espiral` (`IModelDoc2.InsertHelix`)** a partir de un croquis circular base, seguido de un **`Saliente Barrido` (`InsertProtrusionSwept4`)**. Esto permite al diseñador hacer clic derecho en la Hélice y modificar interactivamente el paso ($P$), las revoluciones o la altura en el PropertyManager estándar de SolidWorks.
 
 ```
-[Plano de Referencia: Offset] 
+[Plano de Referencia: Offset z_start] 
             │
             ▼
-[Croquis Hélice: Círculo ØE] ──► [Operación: Hélice / Espiral] (Paso constante, N vueltas)
-                                              │ (Trayectoria)
-                                              ▼
-[Croquis Perfil: Estilo "M"] ──► [Operación: Saliente Barrido] (Fusionar resultado = True)
-(Penetración ~0.4 mm en pared)                │
-                                              ▼
-                                 [Desvanecimiento / Salida de Rosca]
-                                 (Runout cut a 45° o 'Eliminar Cara')
+[Croquis Circular Base: Círculo Ø = 2*r_wall] ──► [Operación: Hélice / Espiral Nativa (InsertHelix)]
+(100% Fully Defined con Cota Ø y Coincidente Origen)               │ (Trayectoria Paramétrica Editable)
+                                                                   ▼
+[Croquis Perfil: Estilo "M" en Alzado]        ──► [Operación: Saliente Barrido (InsertProtrusionSwept4)]
+(Solapamiento ~0.4 mm en pared, 100% Fully Defined)                │
+                                                                   ▼
+                                                  [Desvanecimiento / Salida de Rosca]
+                                                  (Runout cut a 45° o 'Eliminar Cara')
 ```
 
 ### Reglas Críticas para Evitar Fallos en SolidWorks:
-1. **Solapamiento / Penetración de Pared:** El croquis del perfil del filete **NO** debe ser tangente exacta a la pared cilíndrica. Debe penetrar en la pared sólida entre **$0.3$ y $0.5$ mm**. De lo contrario, el kernel Parasolid genera el error `Zero-thickness geometry` (geometría de espesor cero) o caras no manifold.
-2. **Plano de Inicio de Hélice:** La hélice debe comenzar en un plano coordenado alineado con el perfil (por ejemplo, con ángulo inicial de $90^\circ$ o $0^\circ$ para coincidir con el plano Alzado/Frontal).
+1. **Solapamiento / Penetración de Pared:** El croquis del perfil del filete **NO** debe ser tangente exacta a la pared cilíndrica. Debe penetrar en la pared sólida entre **$0.3$ y $0.5$ mm** ($0.40\text{ mm}$ estándar). De lo contrario, el kernel Parasolid genera el error `Zero-thickness geometry` (geometría de espesor cero) o caras no manifold.
+2. **Plano y Ángulo de Inicio de Hélice:** La hélice debe crearse con ángulo inicial `Startangle = 0.0 rad` para que comience exactamente en $(X = r_{\text{wall}}, Y = z_{\text{start}}, Z = 0)$, coincidiendo de forma limpia con el plano frontal `Alzado` (`Front Plane` donde $Z = 0$).
+3. **Firma de la API COM de SolidWorks para Hélice Nativa (10 Parámetros):**
+   ```python
+   # doc.InsertHelix(Reversed, Clockwised, Tapered, Outward, Helixdef, Height, Pitch, Revolution, TaperAngle, Startangle)
+   doc.InsertHelix(
+       reverse_dir,            # False = hacia arriba (+Y), True = hacia abajo (-Y)
+       clockwise,              # True = rosca derecha (horaria), False = izquierda
+       False,                  # Tapered (False para roscas cilíndricas estándar)
+       False,                  # Outward
+       0,                      # Helixdef: 0 = swHelixDefinedByPitchAndRevolution
+       m(pitch_mm * num_turns),# Height (m)
+       m(pitch_mm),            # Pitch (m)
+       float(num_turns),       # Revolution (float)
+       0.0,                    # TaperAngle
+       0.0                     # Startangle (0 rad para cortar exactamente el plano Alzado)
+   )
+   ```
 3. **Desvanecimiento de Extremos (Thread Runout):**
    - Una rosca que termina bruscamente en una cara plana de $90^\circ$ se atasca durante el cierre en la máquina tapadora.
    - Para resolverlo se usan dos métodos:

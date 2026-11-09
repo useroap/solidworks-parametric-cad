@@ -1,7 +1,7 @@
 """
 sw_base_template.py — Plantilla base reutilizable para modelado 3D paramétrico B-Rep
 en SolidWorks 2025 vía API COM (pywin32).
-SolidWorks 2025 Python COM Automation Library
+Parametric CAD Automation Engine
 
 Reglas obligatorias (AGENTS.md):
 - Usa exclusivamente GetActiveObject("SldWorks.Application"); NUNCA usa Dispatch en segundo plano.
@@ -44,12 +44,70 @@ def connect():
     return sw
 
 
-def new_part(sw):
+def new_part(sw, hidden: bool = True):
+    """
+    Crea una nueva pieza. Por defecto hidden=True para aislar el modelado en una ventana
+    oculta en segundo plano y no interferir con el documento activo del usuario.
+    """
     tpl = sw.GetUserPreferenceStringValue(8)  # swDefaultTemplatePart
-    doc = sw.NewDocument(tpl, 0, 0, 0)
+    if hidden:
+        sw.DocumentVisible(False, 1)
+    try:
+        doc = sw.NewDocument(tpl, 0, 0, 0)
+    finally:
+        if hidden:
+            sw.DocumentVisible(True, 1)
     if doc is None:
         raise SystemExit(f"No se pudo crear la pieza con la plantilla: {tpl}")
     return doc
+
+
+class BackgroundCADSession:
+    """
+    Gestor de contexto (with BackgroundCADSession() as doc:) para ejecutar tareas de modelado
+    en una ventana / tarea oculta en segundo plano, garantizando que la sesión interactiva y el
+    documento activo del usuario permanezcan 100% intactos y sin interferencias.
+    """
+    def __init__(self, sw=None, doc_type: int = 1):
+        self.sw = sw or connect()
+        self.doc_type = doc_type
+        self.doc = None
+        self.prev_title = None
+
+    def __enter__(self):
+        try:
+            prev_doc = self.sw.ActiveDoc
+            self.prev_title = _v(prev_doc.GetTitle) if prev_doc else None
+        except Exception:
+            self.prev_title = None
+
+        self.sw.DocumentVisible(False, self.doc_type)
+        tpl = self.sw.GetUserPreferenceStringValue(8 if self.doc_type == 1 else 9)
+        self.doc = self.sw.NewDocument(tpl, 0, 0, 0)
+        self.sw.DocumentVisible(True, self.doc_type)
+
+        if not self.doc:
+            raise RuntimeError("No se pudo instanciar el documento CAD en segundo plano.")
+        return self.doc
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.doc:
+            title = _v(self.doc.GetTitle)
+            try:
+                self.sw.CloseDoc(title)
+            except Exception:
+                pass
+
+        if self.prev_title:
+            try:
+                curr_active = self.sw.ActiveDoc
+                curr_title = _v(curr_active.GetTitle) if curr_active else None
+                if curr_title != self.prev_title:
+                    err = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
+                    self.sw.ActivateDoc3(self.prev_title, False, 0, err)
+            except Exception:
+                pass
+        return False
 
 
 def std_planes(doc):
@@ -213,13 +271,27 @@ class Sketch:
         except Exception:
             return 0
 
+    def is_fully_defined(self) -> bool:
+        """Retorna True si el croquis actual está 100% Fully Constrained (status == 3)."""
+        sk = self.sm.ActiveSketch
+        if not sk:
+            return False
+        return _v(sk.GetConstrainedStatus) == 3
+
     def close(self):
         self.sm.AddToDB = False
         self.sm.DisplayWhenAdded = True
+        # Verificar estado de restriccion matematica antes de cerrar el croquis
+        sk = self.sm.ActiveSketch
+        st = _v(sk.GetConstrainedStatus) if sk else 0
+        st_names = {0: "Not Solved", 1: "Over Defined [ALERTA]", 2: "Under Defined (-) [ALERTA]", 3: "Fully Defined [OK]"}
+        status_str = st_names.get(st, f"Status_{st}")
+        
         self.doc.ClearSelection2(True)
         self.sm.InsertSketch(True)
         f = last_feature(self.doc)
         f.Name = self.name
+        print(f"  [SKETCH AUDIT] Croquis '{self.name}': {status_str}")
         return f
 
 
@@ -270,13 +342,29 @@ def report(doc) -> int:
     return nb
 
 
-def export_part_and_views(doc, base_path: str):
-    """Guarda .SLDPRT, .STEP y las 5 vistas estándar en .BMP."""
+def export_part_and_views(doc, base_path: str, render_views: bool = True):
+    """
+    Guarda .SLDPRT, .STEP y las vistas ortogonales en .BMP / .PNG.
+    Si el documento se creó en segundo plano (invisible) y render_views=True, activa la visibilidad
+    momentáneamente para capturar las vistas estándar. Si render_views=False, genera un render
+    isométrico directo sin abrir ninguna ventana gráfica.
+    """
     os.makedirs(os.path.dirname(base_path), exist_ok=True)
     err = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     wrn = VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, 0)
     doc.Extension.SaveAs(base_path + ".SLDPRT", 0, 1, NOTHING, err, wrn)
     doc.Extension.SaveAs(base_path + ".STEP", 0, 1, NOTHING, err, wrn)
+
+    if not render_views:
+        preview_png = base_path + "_iso.png"
+        doc.SaveAs(preview_png)
+        print("Guardado en segundo plano (preview silencioso):", base_path + ".SLDPRT / .STEP / _iso.png")
+        return
+
+    was_hidden = not getattr(doc, "Visible", True)
+    if was_hidden:
+        doc.Visible = True
+
     for vname, vid in (("iso", 7), ("planta", 5), ("alzado", 1), ("lateral", 4), ("inferior", 6)):
         doc.ShowNamedView2("*" + vname, vid)
         _v(doc.ViewZoomtofit2)
